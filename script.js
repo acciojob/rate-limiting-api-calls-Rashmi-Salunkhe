@@ -1,12 +1,10 @@
-//your JS code here. If required.
-const fetchDataBtn = document.getElementById("fetchDataBtn");
-const clickCountDisplay = document.getElementById("clickCount");
+const fetchButton = document.getElementById("fetch-button");
+const clickCountDisplay = document.getElementById("click-count");
 const resultsDiv = document.getElementById("results");
 
 let clickCount = 0;
 let apiQueue = [];
-let lastExecutionTime = Date.now();
-let processedClicks = 0;
+let requestTimes = []; // Track timestamps of API requests
 
 // Function to fetch data from the API and display it
 function fetchAPIData() {
@@ -26,24 +24,23 @@ function fetchAPIData() {
     .catch(err => console.error("API call failed", err));
 }
 
-// Function to limit the API calls to 5 per second
-function rateLimiter() {
+// Function to manage rate limiting over 10-second windows
+function processApiQueue() {
   const now = Date.now();
   
-  // Check if we should process a new batch of requests
-  if (now - lastExecutionTime >= 1000 && apiQueue.length > 0) {
-    lastExecutionTime = now;
-    let toProcess = Math.min(apiQueue.length, 5); // Process a maximum of 5 requests
-
-    for (let i = 0; i < toProcess; i++) {
-      const task = apiQueue.shift(); // Remove the task from the queue
-      task(); // Execute the API call
-    }
+  // Remove timestamps older than 10 seconds
+  requestTimes = requestTimes.filter(time => now - time < 10000);
+  
+  // If we can process more requests (limit of 5 in 10 seconds)
+  if (requestTimes.length < 5 && apiQueue.length > 0) {
+    requestTimes.push(now); // Record the time of this request
+    const task = apiQueue.shift(); // Remove the task from the queue
+    task(); // Execute the API call
   }
 
-  // Keep running the rate limiter
+  // Continue processing the queue
   if (apiQueue.length > 0) {
-    setTimeout(rateLimiter, 100); // Check every 100ms
+    setTimeout(processApiQueue, 100); // Check every 100ms
   }
 }
 
@@ -51,13 +48,13 @@ function rateLimiter() {
 function handleButtonClick() {
   clickCount++;
   clickCountDisplay.textContent = clickCount;
-  
+
   // Add the API call to the queue
   apiQueue.push(fetchAPIData);
-  
-  // Start the rate limiter if it's not already running
+
+  // Start processing the queue if it's not already running
   if (apiQueue.length === 1) {
-    rateLimiter();
+    processApiQueue();
   }
 
   // Reset the click count after 10 seconds
@@ -70,4 +67,4 @@ function handleButtonClick() {
 }
 
 // Add click event listener to the button
-fetchDataBtn.addEventListener("click", handleButtonClick);
+fetchButton.addEventListener("click", handleButtonClick);
